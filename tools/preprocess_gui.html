@@ -1,0 +1,356 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Kindle Photo Prep</title>
+  <style>
+    :root { color-scheme: dark; --ink:#eeeae1; --muted:#a9a59d; --panel:#252522; --line:#44423d; --accent:#e7b65e; }
+    * { box-sizing: border-box; }
+    body { margin:0; color:var(--ink); background:#171716; font:14px/1.4 ui-sans-serif,system-ui,-apple-system,sans-serif; }
+    main { max-width:1450px; margin:auto; padding:24px; }
+    header { display:flex; flex-wrap:wrap; align-items:end; justify-content:space-between; gap:24px; margin-bottom:20px; }
+    h1 { margin:0; font-size:26px; letter-spacing:-.02em; }
+    header p { margin:5px 0 0; color:var(--muted); }
+    .watch { color:#b8d7a1; font-size:12px; white-space:nowrap; }
+    .watch::before { content:""; display:inline-block; width:7px; height:7px; margin-right:7px; border-radius:50%; background:#83bd61; box-shadow:0 0 0 3px #83bd6120; }
+    .layout { display:grid; grid-template-columns:minmax(300px,390px) minmax(0,1fr); gap:20px; }
+    .panel { min-width:0; background:var(--panel); border:1px solid var(--line); border-radius:12px; padding:16px; }
+    .paths { display:grid; gap:10px; margin-bottom:16px; }
+    label { min-width:0; display:block; color:var(--muted); font-size:12px; font-weight:650; }
+    input[type=text], select, input[type=number] { width:100%; margin-top:5px; padding:9px 10px; color:var(--ink); background:#181817; border:1px solid var(--line); border-radius:7px; }
+    button { color:#1d1b17; background:var(--accent); border:0; border-radius:7px; padding:9px 13px; font-weight:750; cursor:pointer; }
+    button.secondary { color:var(--ink); background:#373632; border:1px solid #56534d; }
+    button:disabled { opacity:.45; cursor:wait; }
+    .actions { display:flex; flex-wrap:wrap; gap:8px; }
+    .preset-manager { display:grid; grid-template-columns:1fr auto auto; gap:8px; align-items:end; }
+    .preset-manager button { height:36px; }
+    .controls { display:grid; gap:12px; }
+    .row { display:grid; grid-template-columns:1fr 1fr; gap:10px; }
+    .slider-head { display:flex; justify-content:space-between; align-items:baseline; }
+    output { color:var(--ink); font-variant-numeric:tabular-nums; }
+    input[type=range] { width:100%; margin:8px 0 0; accent-color:var(--accent); }
+    details { border-top:1px solid var(--line); padding-top:12px; }
+    summary { cursor:pointer; font-weight:700; margin-bottom:12px; }
+    .viewer-head { display:flex; justify-content:space-between; align-items:center; gap:10px; margin-bottom:12px; }
+    .viewer-head strong { overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+    .viewer { display:grid; grid-template-columns:minmax(0,1fr) minmax(0,1fr); gap:12px; }
+    figure { margin:0; }
+    figcaption { color:var(--muted); margin-bottom:6px; }
+    .screen { display:grid; place-items:center; height:min(72vh,760px); min-height:420px; padding:12px; overflow:hidden; background:#0d0d0c; border:1px solid #3c3a36; border-radius:8px; }
+    .screen img { max-width:100%; max-height:100%; object-fit:contain; box-shadow:0 8px 30px #0008; }
+    .placeholder { color:#77736c; text-align:center; max-width:22ch; }
+    .stats { display:flex; flex-wrap:wrap; gap:14px; margin-top:12px; color:var(--muted); font-variant-numeric:tabular-nums; }
+    .status { min-height:1.4em; margin-top:12px; color:var(--muted); white-space:pre-wrap; }
+    .status.error { color:#ff9288; }
+    .hint { color:var(--muted); font-size:12px; margin:8px 0 0; }
+    .checkbox { display:flex; align-items:center; gap:7px; color:var(--ink); font-size:13px; }
+    #custom_size[hidden] { display:none !important; }
+    @media (max-width:1100px) { .layout { grid-template-columns:1fr; } .screen { height:55vh; } }
+    @media (max-width:600px) { main { padding:12px; } .viewer { grid-template-columns:1fr; } .row, .preset-manager { grid-template-columns:1fr; } }
+  </style>
+</head>
+<body>
+<main>
+  <header>
+    <div><h1>Kindle Photo Prep</h1><p id="resolution_summary">Preview the exact Kindle-size grayscale output before exporting.</p></div><button class="secondary" id="quit">Quit Photo Prep</button>
+  </header>
+  <div class="layout">
+    <aside class="panel">
+      <div class="paths">
+        <label>Target Kindle<select id="device"><option value="pw3">Kindle Paperwhite 3 (PW3)</option><option value="custom">Other Kindle / Custom resolution</option></select></label>
+        <div id="custom_size" class="row" hidden aria-hidden="true">
+          <label>Width (pixels)<input id="custom_width" type="number" min="1" max="10000" value="1072"></label>
+          <label>Height (pixels)<input id="custom_height" type="number" min="1" max="10000" value="1448"></label>
+        </div>
+        <label>1. Photo folder<input id="input_dir" type="text" readonly placeholder="Choose your photographs below"></label><button id="choose_input">Choose photo folder…</button>
+        <label>2. Save prepared photos here<input id="output_dir" type="text" readonly></label><button class="secondary" id="choose_output">Choose export folder…</button>
+        <div class="actions"><button id="scan">Scan folder</button><button class="secondary" id="reset">Reset Medium</button></div>
+      </div>
+      <div class="controls">
+        <div class="row">
+          <label>Built-in preset
+            <select id="preset"><option value="none">None</option><option value="gentle">Gentle</option><option value="medium" selected>Medium (recommended)</option><option value="strong">Strong</option><option value="custom">Custom</option></select>
+          </label>
+          <label>Crop / fit
+            <select id="fit"><option value="cover">Cover + center crop</option><option value="contain">Contain + matte</option><option value="stretch">Stretch</option></select>
+          </label>
+        </div>
+        <details><summary>Advanced settings and saved presets</summary>
+        <div class="preset-manager">
+          <label>Saved presets<select id="saved_preset"><option value="">Choose a saved preset…</option></select></label>
+          <button class="secondary" id="load_preset">Load</button>
+          <button class="secondary" id="delete_preset">Delete</button>
+        </div>
+        <div class="preset-manager">
+          <label>Save current settings as<input id="preset_name" type="text" maxlength="60" placeholder="e.g. Bright family photos"></label>
+          <button id="save_preset">Save</button>
+          <span></span>
+        </div>
+        <label><span class="slider-head"><span>Black/white clipping</span><output id="autocontrast_cutoff_out"></output></span><input id="autocontrast_cutoff" type="range" min="0" max="10" step="0.1" value="5.0"></label>
+        <label><span class="slider-head"><span>Sigmoid contrast</span><output id="sigmoid_out"></output></span><input id="sigmoid" type="range" min="0" max="10" step="0.1" value="5.4"></label>
+        <label><span class="slider-head"><span>Gamma (midtones)</span><output id="gamma_out"></output></span><input id="gamma" type="range" min="0.4" max="2.5" step="0.05" value="1.7"></label>
+        <label><span class="slider-head"><span>Brightness</span><output id="brightness_out"></output></span><input id="brightness" type="range" min="0.5" max="1.5" step="0.05" value="1.0"></label>
+        <label><span class="slider-head"><span>Linear contrast</span><output id="contrast_out"></output></span><input id="contrast" type="range" min="0.5" max="2.5" step="0.05" value="0.85"></label>
+        <label><span class="slider-head"><span>Sharpness</span><output id="sharpness_out"></output></span><input id="sharpness" type="range" min="0.5" max="2.5" step="0.05" value="1.5"></label>
+        <details>
+          <summary>Advanced output</summary>
+          <div class="controls">
+            <label><span class="slider-head"><span>Sigmoid midpoint</span><output id="sigmoid_midpoint_out"></output></span><input id="sigmoid_midpoint" type="range" min="0.2" max="0.8" step="0.01" value="0.5"></label>
+            <div class="row">
+              <label>Format<select id="output_format"><option value="jpeg">JPEG</option><option value="png">PNG</option></select></label>
+              <label>JPEG quality<input id="jpeg_quality" type="number" min="1" max="95" value="88"></label>
+            </div>
+            <div class="row">
+              <label>Dithering<select id="dither"><option value="none">None</option><option value="floyd-steinberg">Floyd–Steinberg</option></select></label>
+              <label>Gray levels<input id="levels" type="number" min="2" max="256" value="200"></label>
+            </div>
+            <label>Contain background (0 black, 255 white)<input id="background" type="number" min="0" max="255" value="255"></label>
+          </div>
+        </details>
+        </details>
+        <label class="checkbox"><input id="overwrite" type="checkbox">Overwrite files already in the output folder</label>
+        <div class="actions"><button id="process">Prepare Photos</button></div>
+        <p class="hint">Start with Medium. Photos stay on this computer; nothing is uploaded. After preparing, copy the exported JPG/PNG photos to koreader/photo_frame/images on your Kindle.</p>
+      </div>
+      <div id="status" class="status" role="status" aria-live="polite"></div>
+    </aside>
+    <section class="panel">
+      <div class="viewer-head"><strong id="filename">No image selected</strong><div class="actions"><button class="secondary" id="prev">←</button><button class="secondary" id="next">→</button></div></div>
+      <div class="viewer">
+        <figure><figcaption>Source</figcaption><div class="screen"><span class="placeholder">Choose a photo folder to begin.</span><img id="source_preview" hidden></div></figure>
+        <figure><figcaption id="target_caption">Kindle output</figcaption><div class="screen"><span class="placeholder">Processed preview appears here.</span><img id="processed_preview" hidden></div></figure>
+      </div>
+      <div class="stats"><span id="mean">Mean —</span><span id="stddev">Contrast —</span><span id="black_clip">Black clip —</span><span id="white_clip">White clip —</span></div>
+    </section>
+  </div>
+</main>
+<script>
+const $ = id => document.getElementById(id);
+const sliderIds = ['autocontrast_cutoff','sigmoid','gamma','brightness','contrast','sharpness','sigmoid_midpoint'];
+const settingIds = ['device','custom_width','custom_height',...sliderIds,'preset','fit','output_format','jpeg_quality','dither','levels','background'];
+let presets = {};
+let images = [], index = 0, timer = null, requestSerial = 0;
+let savedPresets = {}, folderSignature = '', scanInFlight = false, processing = false;
+let deviceProfiles = {}, defaultOutputDirs = {}, stopped = false;
+
+function status(message, error=false) { $('status').textContent=message; $('status').className='status'+(error?' error':''); }
+function values() {
+  const data = {};
+  for (const id of settingIds) data[id] = $(id).value;
+  data.input_dir=$('input_dir').value; data.output_dir=$('output_dir').value; data.overwrite=$('overwrite').checked;
+  if (data.preset === 'custom') data.preset='none';
+  return data;
+}
+function updateOutputs() {
+  for (const id of sliderIds) $(id+'_out').textContent = $(id).value + (id==='autocontrast_cutoff'?'%':'');
+}
+async function api(path, data) {
+  const response = await fetch(path,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(data)});
+  const body = await response.json();
+  if (!response.ok) throw new Error(body.error || 'Request failed');
+  return body;
+}
+async function getApi(path) {
+  const response = await fetch(path,{cache:'no-store'});
+  const body = await response.json();
+  if (!response.ok) throw new Error(body.error || 'Request failed');
+  return body;
+}
+function current() { return images[index]; }
+function setBusy(busy) { $('scan').disabled=busy; $('choose_input').disabled=busy; $('choose_output').disabled=busy; $('device').disabled=busy; $('custom_width').disabled=busy; $('custom_height').disabled=busy; $('process').disabled=busy; $('save_preset').disabled=busy; $('load_preset').disabled=busy; $('delete_preset').disabled=busy || !$('saved_preset').value; }
+function clearSavedSelection() { $('saved_preset').value=''; $('delete_preset').disabled=true; }
+function imageSignature(list) { return list.map(item=>`${item.path}\0${item.bytes}\0${item.modified_ns}`).join('\n'); }
+function updateFilename() {
+  $('filename').textContent=current() ? `${index+1} / ${images.length} — ${current().name}` : 'No image selected';
+}
+function clearPreview() {
+  updateFilename();
+  for (const id of ['source_preview','processed_preview']) { $(id).hidden=true; $(id).previousElementSibling.hidden=false; }
+  $('mean').textContent='Mean —'; $('stddev').textContent='Contrast —'; $('black_clip').textContent='Black clip —'; $('white_clip').textContent='White clip —';
+}
+function updateDeviceUI(updateOutput=true) {
+  const device=$('device').value, profile=deviceProfiles[device];
+  if (!profile && device!=='custom') return;
+  if (updateOutput && Object.values(defaultOutputDirs).includes($('output_dir').value) && defaultOutputDirs[device]) $('output_dir').value=defaultOutputDirs[device];
+  const label = device==='custom' ? 'Other Kindle / Custom resolution' : profile.label;
+  const width = device==='custom' ? Number($('custom_width').value) : profile.size[0];
+  const height = device==='custom' ? Number($('custom_height').value) : profile.size[1];
+  const custom = device==='custom';
+  $('custom_size').hidden=!custom;
+  $('custom_size').setAttribute('aria-hidden', String(!custom));
+  $('resolution_summary').textContent=Number.isInteger(width) && Number.isInteger(height) && width>0 && height>0
+    ? `Preview the exact ${width} × ${height} grayscale output before exporting.`
+    : 'Enter positive pixel dimensions to preview a custom output.';
+  $('target_caption').textContent=`${label} output`;
+}
+
+async function scan(manual=true) {
+  if (scanInFlight || processing || !$('input_dir').value) return;
+  scanInFlight=true;
+  if (manual) { setBusy(true); status('Scanning…'); }
+  try {
+    const result=await api('/api/scan',{input_dir:$('input_dir').value});
+    const nextSignature=imageSignature(result.images);
+    const selected=current();
+    const previousByPath=new Map(images.map(image=>[image.path,image]));
+    const nextPaths=new Set(result.images.map(image=>image.path));
+    const added=result.images.filter(image=>!previousByPath.has(image.path)).length;
+    const removed=images.filter(image=>!nextPaths.has(image.path)).length;
+    const changed=nextSignature!==folderSignature;
+    $('input_dir').value=result.input_dir;
+    if (!changed) {
+      if (manual) status(images.length ? `${images.length} image${images.length===1?'':'s'} found.` : 'No supported images found.');
+      return;
+    }
+
+    images=result.images;
+    folderSignature=nextSignature;
+    let selectedStillPresent=false, selectedWasModified=false;
+    if (selected) {
+      const nextIndex=images.findIndex(image=>image.path===selected.path);
+      if (nextIndex>=0) {
+        index=nextIndex; selectedStillPresent=true;
+        const nextImage=images[nextIndex];
+        selectedWasModified=nextImage.bytes!==selected.bytes || nextImage.modified_ns!==selected.modified_ns;
+      } else {
+        index=Math.min(index,Math.max(0,images.length-1));
+      }
+    } else index=0;
+
+    if (!images.length) {
+      clearPreview();
+      status('No supported images found.');
+    } else if (manual || !selectedStillPresent || selectedWasModified) {
+      await preview();
+      if (!manual) status(`Folder updated: ${images.length} images${added?`, ${added} added`:''}${removed?`, ${removed} removed`:''}.`);
+    } else {
+      updateFilename();
+      status(`Folder updated: ${images.length} images${added?`, ${added} added`:''}${removed?`, ${removed} removed`:''}.`);
+    }
+  } catch (e) {
+    if (manual || !images.length) status(e.message,true);
+  }
+  finally { scanInFlight=false; if (manual) setBusy(false); }
+}
+
+async function preview() {
+  if (!current()) return;
+  const serial=++requestSerial;
+  updateFilename();
+  status('Rendering preview…');
+  try {
+    const result=await api('/api/preview',{...values(),source:current().path});
+    if (serial !== requestSerial) return;
+    for (const [id,key] of [['source_preview','source_image'],['processed_preview','image']]) {
+      $(id).src=result[key]; $(id).hidden=false; $(id).previousElementSibling.hidden=true;
+    }
+    $('mean').textContent=`Mean ${result.mean} / 255`;
+    $('stddev').textContent=`Contrast σ ${result.standard_deviation}`;
+    $('black_clip').textContent=`Black clip ${result.black_clip}%`;
+    $('white_clip').textContent=`White clip ${result.white_clip}%`;
+    status('Preview ready.');
+  } catch (e) { if (serial===requestSerial) status(e.message,true); }
+}
+function schedulePreview() { updateOutputs(); clearTimeout(timer); timer=setTimeout(preview,180); }
+function applyPreset(name) {
+  if (!presets[name]) return;
+  Object.entries(presets[name]).forEach(([key,value]) => $(key).value=value);
+  updateOutputs(); schedulePreview();
+}
+function rebuildSavedPresetList(selected='') {
+  const list=$('saved_preset');
+  list.replaceChildren(new Option('Choose a saved preset…',''));
+  for (const name of Object.keys(savedPresets).sort((a,b)=>a.localeCompare(b))) list.add(new Option(name,name));
+  if (selected && savedPresets[selected]) list.value=selected;
+  $('delete_preset').disabled=!list.value;
+}
+async function loadPresets() {
+  const result=await getApi('/api/presets'); savedPresets=result.presets; rebuildSavedPresetList();
+}
+function loadSelectedPreset() {
+  const name=$('saved_preset').value, settings=savedPresets[name];
+  if (!name || !settings) return status('Choose a saved preset first.',true);
+  for (const [key,value] of Object.entries(settings)) if ($(key)) $(key).value=String(value);
+  $('preset').value='custom';
+  updateDeviceUI(true);
+  updateOutputs(); schedulePreview();
+  status(`Loaded preset “${name}”.`);
+}
+async function saveCurrentPreset() {
+  const name=$('preset_name').value.trim();
+  try {
+    const result=await api('/api/presets/save',{...values(),name});
+    savedPresets=result.presets; rebuildSavedPresetList(result.saved); $('preset_name').value=result.saved;
+    status(`Saved preset “${result.saved}”.`);
+  } catch(e) { status(e.message,true); }
+}
+async function deleteSelectedPreset() {
+  const name=$('saved_preset').value;
+  if (!name) return status('Choose a saved preset first.',true);
+  try {
+    const result=await api('/api/presets/delete',{name});
+    savedPresets=result.presets; rebuildSavedPresetList();
+    if ($('preset_name').value===name) $('preset_name').value='';
+    status(`Deleted preset “${name}”.`);
+  } catch(e) { status(e.message,true); }
+}
+async function chooseFolder(kind) {
+  const button=$('choose_'+kind); button.disabled=true;
+  try {
+    const r=await api('/api/choose-folder',{kind});
+    if (r.path) {
+      $(kind+'_dir').value=r.path;
+      if (kind==='input') { folderSignature=''; await scan(true); }
+      else status('Prepared photos will be saved to: '+r.path);
+    }
+  } catch(e) { status(e.message,true); }
+  finally { button.disabled=false; }
+}
+$('choose_input').onclick=()=>chooseFolder('input');
+$('choose_output').onclick=()=>chooseFolder('output');
+$('quit').onclick=async()=>{
+  if (processing) return status('Wait for photo preparation to finish before quitting.');
+  try { await api('/api/quit',{}); stopped=true; clearInterval(pollTimer); document.body.textContent='Kindle Photo Prep has stopped. You can close this tab.'; }
+  catch(e) { status(e.message,true); }
+};
+async function processAll() {
+  if (!images.length) return status('Scan a source folder first.',true);
+  processing=true; setBusy(true); status(`Processing ${images.length} images…`);
+  try {
+    const r=await api('/api/process',values());
+    let message=`Done: ${r.converted} converted, ${r.skipped} skipped, ${r.failed} failed.\nSaved to: ${$('output_dir').value}\nCopy the prepared JPG/PNG photos to koreader/photo_frame/images on your Kindle.`;
+    if (r.failed) message += `\nFailure report: ${r.failures}`;
+    if (r.errors.length) message += '\n' + r.errors.slice(0,5).join('\n');
+    status(message, r.failed>0);
+  } catch (e) { status(e.message,true); }
+  finally { processing=false; setBusy(false); }
+}
+
+$('scan').onclick=()=>scan(true); $('process').onclick=processAll;
+$('prev').onclick=()=>{ if(images.length){index=(index-1+images.length)%images.length; preview();} };
+$('next').onclick=()=>{ if(images.length){index=(index+1)%images.length; preview();} };
+$('reset').onclick=()=>{ clearSavedSelection(); $('preset').value='medium'; applyPreset('medium'); };
+$('preset').onchange=e=>{ clearSavedSelection(); applyPreset(e.target.value); };
+for (const id of sliderIds) $(id).addEventListener('input',()=>{ clearSavedSelection(); if (!['custom'].includes($('preset').value)) $('preset').value='custom'; schedulePreview(); });
+for (const id of settingIds.filter(id=>!sliderIds.includes(id)&&id!=='preset')) $(id).addEventListener('change',()=>{ clearSavedSelection(); schedulePreview(); });
+$('device').addEventListener('change',()=>updateDeviceUI(true));
+$('custom_width').addEventListener('input',()=>{ updateDeviceUI(true); schedulePreview(); });
+$('custom_height').addEventListener('input',()=>{ updateDeviceUI(true); schedulePreview(); });
+$('saved_preset').addEventListener('change',()=>{ $('delete_preset').disabled=!$('saved_preset').value; });
+$('load_preset').onclick=loadSelectedPreset; $('save_preset').onclick=saveCurrentPreset; $('delete_preset').onclick=deleteSelectedPreset;
+$('preset_name').addEventListener('keydown',event=>{ if(event.key==='Enter') saveCurrentPreset(); });
+$('input_dir').addEventListener('change',()=>{ folderSignature=''; scan(true); });
+$('dither').addEventListener('change',()=>{ if ($('dither').value!=='none') $('output_format').value='png'; schedulePreview(); });
+$('output_format').addEventListener('change',()=>{ if ($('output_format').value==='jpeg') $('dither').value='none'; schedulePreview(); });
+
+(async()=>{
+  updateOutputs();
+  try { const d=await getApi('/api/defaults'); presets=d.presets; applyPreset('medium'); deviceProfiles=d.device_profiles; defaultOutputDirs=d.output_dirs; const deviceSelect=$('device'); deviceSelect.replaceChildren(...Object.entries(deviceProfiles).map(([key,profile])=>new Option(profile.label,key)), new Option('Other Kindle / Custom resolution','custom')); deviceSelect.value=d.device; $('input_dir').value=d.input_dir; $('output_dir').value=d.output_dir; updateDeviceUI(false); await loadPresets(); if(d.input_dir) await scan(true); else status('Choose your Kindle, then choose a photo folder. Medium is recommended.'); }
+  catch(e) { status(e.message,true); }
+})();
+const pollTimer=setInterval(()=>{ if(!stopped && document.visibilityState==='visible') scan(false); },2000);
+document.addEventListener('visibilitychange',()=>{ if(!stopped && document.visibilityState==='visible') scan(false); });
+</script>
+</body>
+</html>

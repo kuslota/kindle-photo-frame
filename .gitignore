@@ -1,0 +1,25 @@
+__pycache__/
+*.pyc
+.venv/
+prepared-photos/
+prepared-photos-scribe/
+test_images/
+.photo-frame-presets.json
+.photo-frame-presets.json.tmp
+.DS_Store
+build/
+dist/
+*.egg-info/
+.pytest_cache/
+*.log
+.venv-*/
+
+# Private inputs and local credentials
+test images/
+source-photos/
+prepared-*/
+.env
+.env.*
+!.env.example
+*.pem
+*.key
