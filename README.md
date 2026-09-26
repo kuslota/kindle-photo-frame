@@ -89,6 +89,14 @@ Preparing at the native resolution simply makes cropping and quality more predic
 
 To stop it, wake the Kindle and uncheck **Tools → Photo frame → Automatically change photos**.
 
+## Optional 3D-printed frame
+
+[Frame files](3d_frame_files/) are included for Kindle Paperwhite 3 and Scribe (1st generation),
+with printable STLs and parametric Fusion 360 models you can adapt to other sizes.
+The frame is optional and lets you remove the Kindle when you want to read.
+
+**Suggested print settings:** 0.4 mm nozzle, 0.28 mm layer height. Supports are recommended for the inner part.
+
 ## If something goes wrong
 
 - **Photo Frame is missing:** check that `main.lua` is directly at
