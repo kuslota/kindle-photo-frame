@@ -1,0 +1,13 @@
+Name,Unit,Expression,Value,Comments,Favorite
+bezel_width,mm,3 mm,3.00,3.00,false
+screen_width,mm,90 mm,90.00,90.00,false
+screen_height,mm,122 mm,122.00,122.00,false
+kindle_height,mm,169 mm,169.00,169.00,false
+kindle_width,mm,117.2 mm,117.20,117.20,false
+screen_bott_padding,mm,27.5 mm,27.50,27.50,false
+screen_top_padding,mm,19.5 mm,19.50,19.50,false
+holder_lengh,mm,15 mm,15.00,15.00,false
+holder_width,mm,3 mm,3.00,3.00,false
+screen_side_padding,mm,( kindle_width - screen_width ) / 2,13.60,,false
+carton_bezel_padding_horizontal,mm,13.9 mm,13.90,,false
+carton_bezel_padding_vertical,mm,screen_bott_padding,27.50,,false
